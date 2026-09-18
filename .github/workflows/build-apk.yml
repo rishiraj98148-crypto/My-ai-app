@@ -32,14 +32,44 @@ jobs:
 
       - name: Prepare web files
         run: |
-          mkdir -p www
-          rsync -av \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='android' \
-            --exclude='www' \
-            . www/
+          rm -rf www android extracted
+          mkdir -p www extracted
+
+          if [ -f "index.html" ]; then
+            echo "Found index.html in repository root."
+            cp -a . www-temp
+            rm -rf www-temp/.git
+            rm -rf www-temp/.github
+            rm -rf www-temp/node_modules
+            rm -rf www-temp/android
+            mv www-temp www
+          elif [ -f "My-ai-app.zip" ]; then
+            echo "Extracting My-ai-app.zip..."
+            unzip -q "My-ai-app.zip" -d extracted
+
+            INDEX_FILE=$(find extracted -type f -name "index.html" | head -n 1)
+
+            if [ -z "$INDEX_FILE" ]; then
+              echo "ERROR: index.html was not found inside My-ai-app.zip"
+              exit 1
+            fi
+
+            WEB_ROOT=$(dirname "$INDEX_FILE")
+            echo "Found web project at: $WEB_ROOT"
+
+            cp -a "$WEB_ROOT"/. www/
+          else
+            echo "ERROR: No index.html and no My-ai-app.zip found."
+            exit 1
+          fi
+
+          if [ ! -f "www/index.html" ]; then
+            echo "ERROR: www/index.html was not created."
+            exit 1
+          fi
+
+          echo "Web files ready:"
+          ls -la www
 
       - name: Create Capacitor config
         run: |
