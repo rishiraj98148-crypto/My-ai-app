@@ -35,31 +35,41 @@ jobs:
           rm -rf www android extracted
           mkdir -p www extracted
 
-          if [ -f "index.html" ]; then
-            echo "Found index.html in repository root."
-            cp -a . www-temp
-            rm -rf www-temp/.git
-            rm -rf www-temp/.github
-            rm -rf www-temp/node_modules
-            rm -rf www-temp/android
-            mv www-temp www
-          elif [ -f "My-ai-app.zip" ]; then
-            echo "Extracting My-ai-app.zip..."
-            unzip -q "My-ai-app.zip" -d extracted
+          echo "Searching for ZIP file..."
 
-            INDEX_FILE=$(find extracted -type f -name "index.html" | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 3 -type f -iname '*My-ai-app*.zip' -print -quit)
+
+          if [ -z "$ZIP_FILE" ]; then
+            ZIP_FILE=$(find . -maxdepth 3 -type f -iname '*.zip' -print -quit)
+          fi
+
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Found ZIP: $ZIP_FILE"
+            unzip -q "$ZIP_FILE" -d extracted
+
+            INDEX_FILE=$(find extracted -type f -name "index.html" -print -quit)
 
             if [ -z "$INDEX_FILE" ]; then
-              echo "ERROR: index.html was not found inside My-ai-app.zip"
+              echo "ERROR: index.html was not found inside the ZIP."
+              find extracted -maxdepth 4 -type f | head -100
               exit 1
             fi
 
             WEB_ROOT=$(dirname "$INDEX_FILE")
-            echo "Found web project at: $WEB_ROOT"
+            echo "Found web files in: $WEB_ROOT"
 
             cp -a "$WEB_ROOT"/. www/
+          elif [ -f "index.html" ]; then
+            echo "Found index.html in repository root."
+            cp -a . www/
+            rm -rf www/.git
+            rm -rf www/.github
+            rm -rf www/node_modules
+            rm -rf www/android
           else
-            echo "ERROR: No index.html and no My-ai-app.zip found."
+            echo "ERROR: No ZIP file and no index.html found."
+            echo "Repository files:"
+            find . -maxdepth 3 -type f | head -100
             exit 1
           fi
 
@@ -68,7 +78,7 @@ jobs:
             exit 1
           fi
 
-          echo "Web files ready:"
+          echo "SUCCESS: www/index.html found."
           ls -la www
 
       - name: Create Capacitor config
