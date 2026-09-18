@@ -1,0 +1,112 @@
+name: Build My AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Find My AI ZIP
+        run: |
+          ZIP=$(find . -type f -iname '*My-ai-app*.zip' | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            ZIP=$(find . -type f -iname '*.zip' | head -n 1)
+          fi
+
+          if [ -z "$ZIP" ]; then
+            echo "ZIP file not found!"
+            exit 1
+          fi
+
+          echo "Using ZIP: $ZIP"
+          echo "ZIP_PATH=$ZIP" >> $GITHUB_ENV
+
+      - name: Extract web project
+        run: |
+          rm -rf extracted www
+          mkdir -p extracted www
+
+          unzip -o "$ZIP_PATH" -d extracted
+
+          INDEX=$(find extracted -type f -name "index.html" | head -n 1)
+
+          if [ -z "$INDEX" ]; then
+            echo "index.html not found!"
+            exit 1
+          fi
+
+          WEBROOT=$(dirname "$INDEX")
+
+          echo "Web root: $WEBROOT"
+
+          cp -r "$WEBROOT"/. www/
+
+          echo "Files inside www:"
+          ls -la www
+
+      - name: Create package.json
+        run: |
+          cat > package.json <<'EOF'
+          {
+            "name": "my-ai",
+            "version": "1.0.0",
+            "private": true,
+            "scripts": {
+              "build": "echo Build complete"
+            }
+          }
+          EOF
+
+      - name: Install Capacitor and Voice Plugins
+        run: |
+          npm install \
+            @capacitor/core \
+            @capacitor/cli \
+            @capacitor/android \
+            @capacitor-community/speech-recognition@7.0.1 \
+            @capacitor-community/text-to-speech@8.0.2
+
+      - name: Create Capacitor config
+        run: |
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.rishiraj.myai",
+            "appName": "My AI",
+            "webDir": "www",
+            "bundledWebRuntime": false
+          }
+          EOF
+
+      - name: Add Android
+        run: |
+          npx cap add android
+
+      - name: Sync Capacitor
+        run: |
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: My-AI-APK-Voice
+          path: android/app/build/outputs/apk/debug/app-debug.apk
