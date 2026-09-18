@@ -30,13 +30,24 @@ jobs:
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
 
+      - name: Prepare web files
+        run: |
+          mkdir -p www
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='android' \
+            --exclude='www' \
+            . www/
+
       - name: Create Capacitor config
         run: |
           cat > capacitor.config.json <<'EOF'
           {
             "appId": "com.rishiraj.myai",
             "appName": "My AI",
-            "webDir": "."
+            "webDir": "www"
           }
           EOF
 
